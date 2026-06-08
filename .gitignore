@@ -3,4 +3,4 @@ __pycache__/
 *.pyc
 .env
 last_content.txt
-change_history.json
+
