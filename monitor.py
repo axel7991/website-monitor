@@ -2,6 +2,8 @@ import requests
 from bs4 import BeautifulSoup
 import os
 import json
+import schedule
+import time
 from datetime import datetime
 
 def fetch_website(url):
@@ -63,4 +65,15 @@ def check_for_changes(url):
         print("No changes found.")
 
 url = "https://news.ycombinator.com/newest"
+
+# Run immediately on start
 check_for_changes(url)
+
+# Then run every hour automatically
+schedule.every(1).hours.do(check_for_changes, url)
+
+print("✅ Monitor running — checking every hour. Press Ctrl+C to stop.")
+
+while True:
+    schedule.run_pending()
+    time.sleep(60)
