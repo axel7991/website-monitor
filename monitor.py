@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import os
+import anthropic
 import json
 import schedule
 import time
@@ -56,7 +57,31 @@ def save_change_history(url, added, removed):
     with open(history_file, "w") as f:
         json.dump(history, f, indent=2)
 
-def send_email(url, added, removed):
+def summarize_changes(added, removed):
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    
+    added_text = "\n".join(list(added)[:10]) or "None"
+    removed_text = "\n".join(list(removed)[:10]) or "None"
+
+    message = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=300,
+        messages=[{
+            "role": "user",
+            "content": f"""A website was monitored and changes were detected.
+
+NEW CONTENT ADDED:
+{added_text}
+
+CONTENT REMOVED:
+{removed_text}
+
+Write a clear 2-3 sentence summary of what changed. Be specific and professional."""
+        }]
+    )
+    return message.content[0].text
+
+def send_email(url, added, removed, summary="No summary available"):
     subject = f"🔔 Change Detected on {url}"
 
     added_text = "\n".join(list(added)[:5]) or "None"
@@ -67,6 +92,9 @@ Website Change Monitor Alert 🔍
 
 URL: {url}
 Time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+AI SUMMARY:
+{summary}
 
 CHANGES DETECTED:
 Lines added: {len(added)}
@@ -109,8 +137,10 @@ def check_for_changes(url):
     if current != previous:
         added, removed = get_changes(previous, current)
         print(f"CHANGE DETECTED — {len(added)} lines added, {len(removed)} removed")
+        summary = summarize_changes(added, removed)
+        print(f"AI Summary: {summary}")
         save_change_history(url, added, removed)
-        send_email(url, added, removed)
+        send_email(url, added, removed, summary)
         save_content(current)
     else:
         print("No changes found.")
